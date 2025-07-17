@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lincoln Literacy Message Log</title>
+    
+    <!-- Load Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load React libraries -->
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    
+    <!-- Load Babel to transpile JSX in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* Simple animation for notification */
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translate3d(0, -20%, 0);
+            }
+            to {
+                opacity: 1;
+                transform: translate3d(0, 0, 0);
+            }
+        }
+        .animate-fade-in-down {
+            animation: fadeInDown 0.5s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+
+    <!-- The React app will be rendered inside this div -->
+    <div id="root"></div>
+
+    <!-- The React code goes inside this script tag with type="text/babel" -->
+    <script type="text/babel">
+        const { useState, useCallback, useEffect } = React;
+
+        // Helper component for icons
+        const Icon = ({ path, className = "h-5 w-5" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+                <path d={path} />
+            </svg>
+        );
+
+        // Notification Component
+        const Notification = ({ message, show, onClose, type = 'success' }) => {
+            if (!show) return null;
+            const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+            return (
+                <div className={`fixed top-5 right-5 ${bgColor} text-white py-2 px-4 rounded-lg shadow-lg animate-fade-in-down z-50`}>
+                    <div className="flex items-center">
+                        <span>{message}</span>
+                        <button onClick={onClose} className="ml-4 text-white font-bold">X</button>
+                    </div>
+                </div>
+            );
+        };
+
+        // Recipient Management Modal
+        const RecipientManagerModal = ({ show, onClose, staff, setStaff, triggerNotification }) => {
+            const [name, setName] = useState('');
+            const [email, setEmail] = useState('');
+            const [editingEmail, setEditingEmail] = useState(null);
+
+            const handleAddOrUpdate = () => {
+                if (!name || !email) {
+                    triggerNotification('Name and email are required.', 'error');
+                    return;
+                }
+                if (editingEmail) {
+                    setStaff(staff.map(p => p.email === editingEmail ? { name, email } : p));
+                    triggerNotification('Recipient updated successfully!');
+                } else {
+                    if (staff.find(p => p.email === email)) {
+                        triggerNotification('A recipient with this email already exists.', 'error');
+                        return;
+                    }
+                    setStaff([...staff, { name, email }]);
+                    triggerNotification('Recipient added successfully!');
+                }
+                setName('');
+                setEmail('');
+                setEditingEmail(null);
+            };
+
+            const handleEdit = (person) => {
+                setEditingEmail(person.email);
+                setName(person.name);
+                setEmail(person.email);
+            };
+
+            const handleDelete = (personEmail) => {
+                setStaff(staff.filter(p => p.email !== personEmail));
+                triggerNotification('Recipient deleted.', 'success');
+            };
+            
+            const handleCancelEdit = () => {
+                setName('');
+                setEmail('');
+                setEditingEmail(null);
+            }
+
+            if (!show) return null;
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40">
+                    <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md mx-4">
+                        <h2 className="text-2xl font-semibold mb-4">Manage Recipients</h2>
+                        <div className="space-y-4 mb-6">
+                            <input type="text" placeholder="Name" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+                            <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+                            <div className="flex justify-end space-x-2">
+                                {editingEmail && <button onClick={handleCancelEdit} className="px-4 py-2 text-sm bg-gray-200 rounded-md hover:bg-gray-300">Cancel</button>}
+                                <button onClick={handleAddOrUpdate} className="px-4 py-2 text-sm text-white bg-indigo-600 rounded-md hover:bg-indigo-700">{editingEmail ? 'Update' : 'Add'}</button>
+                            </div>
+                        </div>
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {staff.filter(s => s.email).map(person => (
+                                <div key={person.email} className="flex justify-between items-center p-2 bg-gray-50 rounded-md">
+                                    <div>
+                                        <p className="font-medium">{person.name}</p>
+                                        <p className="text-sm text-gray-500">{person.email}</p>
+                                    </div>
+                                    <div className="flex space-x-2">
+                                        <button onClick={() => handleEdit(person)} className="p-1 text-gray-500 hover:text-indigo-600">
+                                            <Icon path="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
+                                        </button>
+                                        <button onClick={() => handleDelete(person.email)} className="p-1 text-gray-500 hover:text-red-600">
+                                            <Icon path="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <button onClick={onClose} className="mt-6 w-full px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-700">Close</button>
+                    </div>
+                </div>
+            );
+        };
+        
+        const MessageCard = ({ msg, onArchive, onDelete, onUnarchive, isArchived = false }) => (
+            <div className={`bg-white p-5 rounded-xl shadow-lg transition hover:shadow-xl ${isArchived ? 'opacity-70' : ''}`}>
+                <div className="flex justify-between items-start">
+                    <div>
+                        <p className="font-bold text-lg text-gray-800">{msg.callerName}</p>
+                        <p className="text-sm text-gray-500">for <span className="font-medium text-gray-600">{msg.recipientName}</span></p>
+                    </div>
+                    <div className="text-right text-xs text-gray-400">
+                        <p>{msg.callDate}</p><p>{msg.timestamp.split(',')[1]}</p>
+                    </div>
+                </div>
+                <div className="mt-4 border-t pt-4">
+                    <p className="text-gray-700 whitespace-pre-wrap">{msg.message}</p>
+                    {msg.callerPhone && <p className="text-sm text-gray-500 mt-2">Phone: {msg.callerPhone}</p>}
+                </div>
+                <div className="flex justify-between items-end mt-4 pt-4 border-t">
+                    <p className="text-xs text-gray-400">Taken by: {msg.messageTaker}</p>
+                    <div className="flex space-x-2">
+                        {isArchived ? (
+                            <button onClick={() => onUnarchive(msg.id)} className="p-2 text-gray-500 hover:text-green-600" title="Unarchive"><Icon path="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></button>
+                        ) : (
+                            <React.Fragment>
+                                <button onClick={() => onArchive(msg.id)} className="p-2 text-gray-500 hover:text-yellow-600" title="Archive"><Icon path="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></button>
+                                <button onClick={() => onDelete(msg.id)} className="p-2 text-gray-500 hover:text-red-600" title="Delete"><Icon path="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></button>
+                            </React.Fragment>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+
+        const EmptyState = ({ message }) => (
+            <div className="text-center py-10 px-6 bg-white rounded-xl shadow-md">
+                <h3 className="text-lg font-medium text-gray-700">No Messages Here</h3>
+                <p className="mt-1 text-sm text-gray-500">{message}</p>
+            </div>
+        );
+
+        // Main App Component
+        const App = () => {
+            // --- MOCK DATA ---
+            const initialStaff = [
+                { name: 'Select a recipient...', email: '' },
+                { name: 'Sarah Miller', email: 'sarah.miller@example.com' },
+                { name: 'James Peterson', email: 'james.peterson@example.com' },
+                { name: 'Maria Garcia', email: 'maria.garcia@example.com' },
+                { name: 'David Chen', email: 'david.chen@example.com' }
+            ];
+
+            // --- STATE MANAGEMENT ---
+            const [staff, setStaff] = useState(initialStaff);
+            const [callerName, setCallerName] = useState('');
+            const [callDate, setCallDate] = useState(new Date().toISOString().substring(0, 10));
+            const [callerPhone, setCallerPhone] = useState('');
+            const [recipientEmail, setRecipientEmail] = useState('');
+            const [message, setMessage] = useState('');
+            const [messageTaker, setMessageTaker] = useState('');
+            const [loggedMessages, setLoggedMessages] = useState([]);
+            const [archivedMessages, setArchivedMessages] = useState([]);
+            const [showNotification, setShowNotification] = useState(false);
+            const [notificationMessage, setNotificationMessage] = useState('');
+            const [notificationType, setNotificationType] = useState('success');
+            const [isManagingRecipients, setIsManagingRecipients] = useState(false);
+            const [showArchived, setShowArchived] = useState(false);
+
+            // --- NOTIFICATION HANDLER ---
+            const triggerNotification = (msg, type = 'success') => {
+                setNotificationMessage(msg);
+                setNotificationType(type);
+                setShowNotification(true);
+                setTimeout(() => setShowNotification(false), 4000);
+            };
+
+            // --- FORM & MESSAGE HANDLING ---
+            const handleSubmit = useCallback((e) => {
+                e.preventDefault();
+                if (!callerName || !recipientEmail || !message || !messageTaker) {
+                    triggerNotification('Please fill in all required fields (*).', 'error');
+                    return;
+                }
+                const recipientName = staff.find(p => p.email === recipientEmail)?.name || recipientEmail;
+                const newMessage = {
+                    id: Date.now(), callerName, callDate, callerPhone, recipientEmail, recipientName,
+                    message, messageTaker, timestamp: new Date().toLocaleString(),
+                };
+                setLoggedMessages(prev => [newMessage, ...prev]);
+                triggerNotification(`Message for ${recipientName} logged.`);
+                clearForm();
+            }, [callerName, callDate, callerPhone, recipientEmail, message, messageTaker, staff]);
+
+            const clearForm = useCallback(() => {
+                setCallerName(''); setCallDate(new Date().toISOString().substring(0, 10)); setCallerPhone('');
+                setRecipientEmail(''); setMessage(''); setMessageTaker('');
+            }, []);
+
+            const handleDeleteMessage = (id) => {
+                setLoggedMessages(prev => prev.filter(msg => msg.id !== id));
+                triggerNotification('Message deleted.');
+            };
+
+            const handleArchiveMessage = (id) => {
+                const msgToArchive = loggedMessages.find(msg => msg.id === id);
+                if (msgToArchive) {
+                    setArchivedMessages(prev => [msgToArchive, ...prev]);
+                    setLoggedMessages(prev => prev.filter(msg => msg.id !== id));
+                    triggerNotification('Message archived.');
+                }
+            };
+            
+            const handleUnarchiveMessage = (id) => {
+                const msgToUnarchive = archivedMessages.find(msg => msg.id === id);
+                if(msgToUnarchive) {
+                    setLoggedMessages(prev => [msgToUnarchive, ...prev]);
+                    setArchivedMessages(prev => prev.filter(msg => msg.id !== id));
+                    triggerNotification('Message unarchived.');
+                }
+            };
+
+            // --- RENDER ---
+            return (
+                <React.Fragment>
+                    <RecipientManagerModal show={isManagingRecipients} onClose={() => setIsManagingRecipients(false)} staff={staff} setStaff={setStaff} triggerNotification={triggerNotification} />
+                    <div className="bg-gray-50 min-h-screen font-sans text-gray-800">
+                        <div className="container mx-auto p-4 sm:p-6 lg:p-8">
+                            <Notification message={notificationMessage} show={showNotification} onClose={() => setShowNotification(false)} type={notificationType} />
+                            <header className="text-center mb-10">
+                                <h1 className="text-4xl font-bold text-gray-800">Lincoln Literacy Message Log</h1>
+                                <p className="text-gray-600 mt-2">A simple and effective way to log phone messages.</p>
+                            </header>
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                {/* --- FORM COLUMN --- */}
+                                <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg h-fit">
+                                    <div className="flex justify-between items-center border-b pb-3 mb-6">
+                                        <h2 className="text-2xl font-semibold">Log a New Message</h2>
+                                        <button onClick={() => setIsManagingRecipients(true)} className="p-2 text-gray-500 hover:text-indigo-600" title="Manage Recipients">
+                                            <Icon path="M18 18.75a3 3 0 00-3-3H9a3 3 0 00-3 3v1.5a.75.75 0 001.5 0v-1.5a1.5 1.5 0 011.5-1.5h6a1.5 1.5 0 011.5 1.5v1.5a.75.75 0 001.5 0v-1.5zM12 12.75a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5z" className="h-6 w-6"/>
+                                        </button>
+                                    </div>
+                                    <form onSubmit={handleSubmit} className="space-y-4">
+                                        <div>
+                                            <label htmlFor="callerName" className="block text-sm font-medium text-gray-700">Caller Name *</label>
+                                            <input id="callerName" type="text" value={callerName} onChange={(e) => setCallerName(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" placeholder="John Doe" required />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="callDate" className="block text-sm font-medium text-gray-700">Date of Call</label>
+                                            <input id="callDate" type="date" value={callDate} onChange={(e) => setCallDate(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="callerPhone" className="block text-sm font-medium text-gray-700">Caller Phone</label>
+                                            <input id="callerPhone" type="tel" value={callerPhone} onChange={(e) => setCallerPhone(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" placeholder="555-123-4567" />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="messageTaker" className="block text-sm font-medium text-gray-700">Message Taken By *</label>
+                                            <input id="messageTaker" type="text" value={messageTaker} onChange={(e) => setMessageTaker(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" placeholder="Your Name" required />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="recipientEmail" className="block text-sm font-medium text-gray-700">Recipient *</label>
+                                            <select id="recipientEmail" value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" required >
+                                                {staff.map(person => (<option key={person.email} value={person.email} disabled={person.email === ''}>{person.name}</option>))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">Message *</label>
+                                            <textarea id="message" value={message} onChange={(e) => setMessage(e.target.value)} rows="5" className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" placeholder="Enter the full message here..." required></textarea>
+                                        </div>
+                                        <div className="flex items-center justify-end space-x-3 pt-4">
+                                            <button type="button" onClick={clearForm} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Clear</button>
+                                            <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md shadow-sm hover:bg-indigo-700">Log Message</button>
+                                        </div>
+                                    </form>
+                                </div>
+
+                                {/* --- MESSAGES COLUMNS --- */}
+                                <div className="lg:col-span-2 space-y-8">
+                                    <section>
+                                        <h2 className="text-2xl font-semibold mb-6">Logged Messages</h2>
+                                        <div className="space-y-6">
+                                            {loggedMessages.length > 0 ? loggedMessages.map(msg => (
+                                                <MessageCard key={msg.id} msg={msg} onArchive={handleArchiveMessage} onDelete={handleDeleteMessage} />
+                                            )) : <EmptyState message="New messages will appear here once you log them." />}
+                                        </div>
+                                    </section>
+                                    {archivedMessages.length > 0 && (
+                                        <section>
+                                            <h2 className="text-2xl font-semibold mb-6 border-t pt-8">
+                                                <button onClick={() => setShowArchived(!showArchived)} className="flex items-center w-full text-left">
+                                                    Archived Messages ({archivedMessages.length})
+                                                    <Icon path={showArchived ? "M4.5 15.75l7.5-7.5 7.5 7.5" : "M19.5 8.25l-7.5 7.5-7.5-7.5"} className="ml-2 h-5 w-5 transition-transform"/>
+                                                </button>
+                                            </h2>
+                                            {showArchived && (
+                                                <div className="space-y-6 animate-fade-in">
+                                                    {archivedMessages.map(msg => (
+                                                        <MessageCard key={msg.id} msg={msg} isArchived={true} onUnarchive={handleUnarchiveMessage} />
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </section>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </React.Fragment>
+            );
+        };
+
+        // This is the crucial part: it tells React to render the <App /> component
+        // into the HTML element with the id 'root'.
+        ReactDOM.render(<App />, document.getElementById('root'));
+
+    </script>
+
+</body>
+</html>
